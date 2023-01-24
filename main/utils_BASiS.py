@@ -91,10 +91,6 @@ def calculateM(U_sampled_test, U_sampled):
 
 def AffineU(pts1, pts2, anchors_num, nPoints, nIter, tol, plotTransforms=False, saveImages=False,
             model_path=None, test_num=None):
-    # Rotation+translation
-    # pts1 - from (to be affined)
-    # pts2 - to (base)
-
     N = pts1.shape[0]
     hpts1 = np.concatenate([pts1, np.ones([N, 1])], axis=1)
 
@@ -114,7 +110,6 @@ def AffineU(pts1, pts2, anchors_num, nPoints, nIter, tol, plotTransforms=False, 
         chosen_U_anchor = chosen_U[0:anchors_num]
 
         L2dists = torch.sqrt(torch.sum((chosen_U_anchor[0:anchors_num] - pts2_anchor[0:anchors_num]) ** 2, 1))
-        # print(torch.mean(L2dists))
         inliers = (pts1_anchor[L2dists < tol, :], pts2_anchor[L2dists < tol, :])
         n_inliers = torch.sum(L2dists < tol)
         if n_inliers > best_inliers_n:
