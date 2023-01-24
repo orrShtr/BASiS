@@ -1,6 +1,4 @@
 import os
-
-# pytorch imports
 import torch
 
 

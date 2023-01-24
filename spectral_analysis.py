@@ -2,21 +2,27 @@ import numpy as np
 import matplotlib.pyplot as plt
 import time
 from munkres import Munkres
-
-# pytorch imports
 import torch
 import torch.nn as nn
-
-# scikit-learn imports
 from sklearn.neighbors import NearestNeighbors
 from sklearn.cluster import KMeans
 import sklearn.metrics
 from sklearn.metrics.cluster import normalized_mutual_info_score
 
 
-
 # Spectral Clustering
 def createAffinity(data, ms, ms_normal, sigmaFlag):
+    '''
+    Computes the Affinity matrix
+    inputs:
+    data:                   array of data featrues
+    ms:                     neighbors number per node
+    ms_normal:              neighbor for the kernel std. 
+    sigmaFlag:              flag for the kernel variance calculation
+    
+    returns:    
+    y:                      the affinity matrix                
+    '''
     n = data.shape[0]
     nbrs = NearestNeighbors(n_neighbors=ms, algorithm='kd_tree').fit(data)
     dist, idx = nbrs.kneighbors(data)
@@ -40,7 +46,6 @@ def createAffinity(data, ms, ms_normal, sigmaFlag):
         W = torch.exp(-dist ** 2 / (2 * graph_median ** 2))
 
     if sigmaFlag == 3:
-        #sigma = 1000
         sigma = 10000
         W = torch.exp(-dist ** 2 / sigma)
 
@@ -52,6 +57,18 @@ def createAffinity(data, ms, ms_normal, sigmaFlag):
 
 
 def ev_calculation(features, classNum, ms, ms_normal, sigmaFlag):
+    '''
+    Computes the graph Laplacian eigenvectors
+    inputs:
+    features:               array of data featrues
+    classNum:               number of classes
+    ms:                     neighbors number per node
+    ms_normal:              neighbor for the kernel std. 
+    sigmaFlag:              flag for the kernel variance calculation
+    
+    returns:    
+    RCut_EV:                the first K eigenvectors of L/L_N               
+    '''
     n = features.size(0)
 
     W = createAffinity(features, ms, ms_normal, sigmaFlag)
@@ -69,7 +86,6 @@ def ev_calculation(features, classNum, ms, ms_normal, sigmaFlag):
     # U_L = U_L[:, indices]
     # # RCut_EV = U_L[:, 1:classNum]
     # RCut_EV = U_L[:, 0:classNum]
-    # # ev_norm2 = torch.linalg.norm(RCut_EV, axis=0)
 
     # L_N
     D_sqrt = torch.diag(1. / torch.sqrt(s0))
@@ -86,6 +102,18 @@ def ev_calculation(features, classNum, ms, ms_normal, sigmaFlag):
 
 
 def SpectralClusteringFromEV(ev, true_labels, classNum):
+    '''
+    performe spectral clutering from the spectral embedding
+    inputs:
+    ev:                     the eigenvectors of the graph Laplacian
+    true_labels:            data true labels
+    classNum:               number of classes
+
+    returns:    
+    RCut_labels:            spectral clustering assignment 
+    model_nmi:              nmi value
+    model_acc:              acc value
+    '''
     RCut_kmeans = KMeans(n_clusters=classNum, random_state=0).fit(ev)
     RCut_labels = RCut_kmeans.labels_
     model_nmi = normalized_mutual_info_score(true_labels, RCut_labels)
@@ -95,6 +123,15 @@ def SpectralClusteringFromEV(ev, true_labels, classNum):
 
 # Performance measures
 def get_orthogonality_measure(U, classNum):
+    '''
+    calcute the orthogonality measure
+    inputs:
+    U:                      the matrix whose orthogonality is tested
+    classNum:               number of classes
+
+    returns:    
+    orthogonality_measure:  orthogonality measure 
+    '''
     n, m = U.shape
     ev_norm = np.linalg.norm(U, axis=0)
     ev_norm = 1 / ev_norm
@@ -110,18 +147,26 @@ def get_orthogonality_measure(U, classNum):
 
 
 def grassmann(A, B):
+    '''
+    calcute grassmann distance 
+    inputs:
+    A, B:                   the matrices for which the distance is checked
+
+    returns:    
+    grassmann_val:          grassmann distance between A and B 
+    '''
     n, m = A.shape
 
     A_col_norm = torch.linalg.norm(A, dim=0)
     A_col_norm = 1 / A_col_norm
     A_norm_matrix = torch.tile(A_col_norm, (n, 1))
-    A_normalized = A_norm_matrix * A  #elmentwise
+    A_normalized = A_norm_matrix * A  
     A_normalized = A_normalized.float()
 
     B_col_norm = torch.linalg.norm(B, dim=0)
     B_col_norm = 1 / B_col_norm
     B_norm_matrix = torch.tile(B_col_norm, (n, 1))
-    B_normalized = B_norm_matrix * B  #elmentwise
+    B_normalized = B_norm_matrix * B  
     B_normalized = B_normalized.float()
 
     M = A_normalized.T @ B_normalized
@@ -209,6 +254,7 @@ def calculate_classifier_accuracy(model, dataloader, class_num, device):
 
 
 class EV_Classifier(nn.Module):
+  # Linear regression model 
     def __init__(self, n_features, n_classes):
         super(EV_Classifier, self).__init__()
 
@@ -221,25 +267,20 @@ class EV_Classifier(nn.Module):
 
 
 def valid_ev_classifier(classifier_model, data_loader, criterion, device):
-    classifier_model.eval()
+    classifier_model.eval()  # put in evaluation mode
     loss_array = []
     running_loss = 0.0
     with torch.no_grad():
         for i, data in enumerate(data_loader, 0):
-            # get the inputs
             inputs, labels = data
-            # send them to device
             inputs = inputs.to(device)
             labels = labels.type(torch.LongTensor).to(device)
 
-            # forward + backward + optimize
-            outputs = classifier_model(inputs.float())  # forward pass
-            loss = criterion(outputs, labels)  # calculate the loss
+            outputs = classifier_model(inputs.float()) 
+            loss = criterion(outputs, labels) 
 
-            # print statistics
             running_loss += loss.data.item()
 
-        # Normalizing the loss by the total number of train batches
     running_loss /= len(data_loader)
     return running_loss
 
@@ -251,15 +292,10 @@ def linear_classifier(train_loader, valid_loader, test_loader, encoded_xTrain, c
     epochs = 100
     classNum = 10
 
-    # loss criterion
-    criterion = nn.CrossEntropyLoss()
-
-    # build our model and send it to the device
     n_features = encoded_xTrain.shape[1]
-    classifier_model = EV_Classifier(n_features, classNum).to(
-        device)  # no need for parameters as we alredy defined them in the class
-
-    # optimizer - SGD, Adam, RMSProp...
+    classifier_model = EV_Classifier(n_features, classNum).to(device) 
+    
+    criterion = nn.CrossEntropyLoss()
     optimizer = torch.optim.Adam(classifier_model.parameters(), lr=learning_rate)
 
     # training loop
@@ -272,28 +308,21 @@ def linear_classifier(train_loader, valid_loader, test_loader, encoded_xTrain, c
         running_loss = 0.0
         epoch_time = time.time()
         for i, data in enumerate(train_loader, 0):
-            # get the inputs
             inputs, labels = data
-            # send them to device
             inputs = inputs.to(device)
             labels = labels.type(torch.LongTensor).to(device)
 
-            # forward + backward + optimize
-            outputs = classifier_model(inputs.float())  # forward pass
-            loss = criterion(outputs, labels)  # calculate the loss
-            # always the same 3 steps
-            optimizer.zero_grad()  # zero the parameter gradients
-            loss.backward()  # backpropagation
-            optimizer.step()  # update parameters
+            outputs = classifier_model(inputs.float())  
+            loss = criterion(outputs, labels) 
+            optimizer.zero_grad()  
+            loss.backward()  
+            optimizer.step()  
 
-            # print statistics
             running_loss += loss.data.item()
 
-        # Normalizing the loss by the total number of train batches
         running_loss /= len(train_loader)
         running_loss_array.append(running_loss)
 
-        # valid loss
         valid_loss = valid_ev_classifier(classifier_model, valid_loader, criterion, device)
         valid_loss_array.append(valid_loss)
 

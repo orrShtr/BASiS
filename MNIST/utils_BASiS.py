@@ -3,12 +3,8 @@ import matplotlib
 import matplotlib.pyplot as plt
 import random
 from mpl_toolkits.axes_grid1 import make_axes_locatable
-
-# pytorch imports
 import torch
 import torch.nn as nn
-
-# scikit-learn imports
 from sklearn.metrics import confusion_matrix
 
 from utils import save_model
@@ -16,6 +12,18 @@ from spectral_analysis import ev_calculation, grassmann, get_orthogonality_measu
 
 
 def calculate_accuracy(predictions, true_labels, class_num, classes, plotConfusion=False):
+    '''
+    Calculate model accuracy
+    inputs:
+    predictions:            model predictions
+    true_labels:            true labels
+    class_num:              number of classes
+    classes:                the problem classes
+    plotConfusion:          flag for printing confusion matrix 
+    
+    returns:    
+    test_accuracy:          model accuracy               
+    '''
     cf_matrix = confusion_matrix(true_labels, predictions)
     total_correct = np.sum(np.array(predictions) == np.array(true_labels))
     total_images_num = true_labels.size(0)
@@ -37,6 +45,17 @@ def calculate_accuracy(predictions, true_labels, class_num, classes, plotConfusi
     return test_accuracy
 
 def sampleAnchors(yTest, anchors_per_class, classNum):
+    '''
+    Sample the anchors
+    inputs:
+    yTest:                  true labels 
+    anchors_per_class:      number of anchors to sample per class
+    anchors_per_class:      number of classes
+    
+    returns:    
+    anchors_index:          indexes of the anchors nodes
+    not_anchors_index:      indexes of the non-anchor nodes 
+    '''
     test_samples_num = len(yTest)
     indx_list = list(range(0, test_samples_num))
 
@@ -53,8 +72,12 @@ def sampleAnchors(yTest, anchors_per_class, classNum):
     return anchors_index, not_anchors_index
 
 
-def generateBase(xTrain, yTrain, nodes_indx_list, number_of_sampled_nodes, anchors_per_class, anchors_idx, classNum,
+def generateBase(xTrain, yTrain, nodes_indx_list, number_of_sampled_nodes, 
+                 anchors_per_class, anchors_idx, classNum,
                  classes, ms, ms_normal, sigmaFlag, device):
+    '''
+    Sample the refernce set and return its spectral embedding 
+    '''
     base_sampled_nodes_indx = random.sample(nodes_indx_list, number_of_sampled_nodes)
     base_sampled_nodes_indx = sorted(
         base_sampled_nodes_indx + [indx for indx in anchors_idx if indx not in base_sampled_nodes_indx])
@@ -72,6 +95,9 @@ def generateBase(xTrain, yTrain, nodes_indx_list, number_of_sampled_nodes, ancho
 
 
 def calculateM(U_sampled_test, U_sampled):
+    '''
+    Calculate alignment transformation between U_sampled_test and U_sampled
+    '''
     num_points = U_sampled_test.shape[0]
 
     n_digits = 4  # number of digits of precision
@@ -91,6 +117,23 @@ def calculateM(U_sampled_test, U_sampled):
 
 def AffineU(pts1, pts2, anchors_num, nPoints, nIter, tol, plotTransforms=False, saveImages=False,
             model_path=None, test_num=None):
+    '''
+    Calculate the optimal alignment transformation with RANSAC 
+    inputs:
+    pts1:                   current embedding 
+    pts2:                   refernce embedding 
+    anchors_num:            anchors number 
+    nPoints:                number of anchors with which the transformation is actually calculated
+    nIter:                  number of RANSAC iterations
+    tol:                    tolerance parameter for RANSAC
+    plotTransforms:         flag for printing the transformation
+    saveImages:             flag for printing saving  the transformation image 
+    model_path:             path for images 
+    test_num:               current test number 
+       
+    returns:    
+    bestU:                  pts1 after alignment
+    '''
     N = pts1.shape[0]
     hpts1 = np.concatenate([pts1, np.ones([N, 1])], axis=1)
 
@@ -142,6 +185,9 @@ def AffineU(pts1, pts2, anchors_num, nPoints, nIter, tol, plotTransforms=False, 
 
 
 class EvModule(nn.Module):
+    '''
+    BASiS model  
+    '''
     def __init__(self, n_features=2, projection_dim=1):
         super(EvModule, self).__init__()
 
@@ -164,14 +210,39 @@ class EvModule(nn.Module):
         return self.model(x)
 
 
-def train_model(xTrain, yTrain, xValid, yValid, classes, anchors_per_class, anchors_num, number_of_sampled_nodes, ms,
-                ms_normal, sigmaFlag, ransac_nPoints, ransac_nIter, ransac_tol, iter_num, model_path, device):
+def train_model(xTrain, yTrain, xValid, yValid, classes, anchors_per_class, 
+                anchors_num, number_of_sampled_nodes, ms,
+                ms_normal, sigmaFlag, ransac_nPoints, ransac_nIter, 
+                ransac_tol, iter_num, model_path, device):
+    '''
+    Train BASiS model
+    inputs:
+    xTrain:                   training features 
+    yTrain:                   training labels 
+    xValid:                   validation features 
+    yTrain:                   validation labels 
+    classes:                  the problem classes 
+    anchors_per_class:        number of anchors per class
+    anchors_num:              anchors number 
+    number_of_sampled_nodes:  batch size 
+    ms:                       neighbors number per node
+    ms_normal:                neighbor for the kernel std. 
+    sigmaFlag:                flag for the kernel variance calculation
+    ransac_nPoints:           number of anchors with which the transformation is actually calculated
+    ransac_nIter:             number of RANSAC iterations
+    ransac_tol:               tolerance parameter for RANSAC
+    iter_num:                 number of training  iterations
+    model_path:               path for images 
+    device:                   device id 
+       
+    returns:    
+    model:                    trained BASiS model 
+    U_sampled_base:           refernce spectral embedding 
+    '''            
     nodes_num, node_dim = xTrain.shape
     classNum = len(classes)
 
     learning_rate = 1e-4
-
-    # build our model and send it to the device
     n_features = node_dim
     # projection_dim = classNum - 1
     projection_dim = classNum
@@ -182,13 +253,10 @@ def train_model(xTrain, yTrain, xValid, yValid, classes, anchors_per_class, anch
     # loss criterion
     criterion = nn.MSELoss()
 
-    # optimizer - SGD, Adam, RMSProp...
+    # optimizer
     optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate)
 
-    # sampling parameters
     nodes_indx_list = range(0, nodes_num)
-
-    # base
     anchors_idx = range(0, anchors_num)
     U_sampled_base = generateBase(xTrain, yTrain, nodes_indx_list, number_of_sampled_nodes, anchors_per_class,
                                   anchors_idx, classNum, classes, ms, ms_normal, sigmaFlag, device)
@@ -206,27 +274,45 @@ def train_model(xTrain, yTrain, xValid, yValid, classes, anchors_per_class, anch
         U_sampled = ev_calculation(inputs, classNum, ms, ms_normal, sigmaFlag)
         U_sampled = AffineU(U_sampled, U_sampled_base, anchors_num, ransac_nPoints, ransac_nIter, ransac_tol)
 
-        # forward + backward + optimize
-        outputs = model(inputs.float())  # forward pass
-        loss = criterion(outputs, U_sampled.float())  # calculate the loss
+        outputs = model(inputs.float()) 
+        loss = criterion(outputs, U_sampled.float()) 
 
-        # always the same 3 steps
-        optimizer.zero_grad()  # zero the parameter gradients
-        loss.backward()  # backpropagation
-        optimizer.step()  # update parameters
-
+        optimizer.zero_grad() 
+        loss.backward()  
+        optimizer.step()  
 
     save_model(model_path, iter, model)
     return model, U_sampled_base
 
 
-def modelEvaluataion(model, xTest, yTest, U_sampled_base, classes, ms, ms_normal, sigmaFlag, anchors_num,
+def modelEvaluataion(model, xTest, yTest, U_sampled_base, classes, 
+                     ms, ms_normal, sigmaFlag, anchors_num,
                      ransac_nPoints, ransac_nIter, ransac_tol):
+        '''
+    Evaluate BASiS model performance 
+    inputs:
+    model:                    trained BASiS model
+    xTest:                    test set features 
+    yTest:                    test set labels 
+    U_sampled_base:           refernce spectral embedding 
+    classes:                  the problem classes 
+    ms:                       neighbors number per node
+    ms_normal:                neighbor for the kernel std. 
+    sigmaFlag:                flag for the kernel variance calculation
+    anchors_num:              anchors number 
+    ransac_nPoints:           number of anchors with which the transformation is actually calculated
+    ransac_nIter:             number of RANSAC iterations
+       
+    returns:    
+    model_nmi:                nmi 
+    model_acc:                acc
+    model_grassmann:          grassmann distance 
+    model_orthogonality:      orthogonality measure
+    '''            
     model.eval()
 
     classNum = len(classes)
 
-    # All test set
     inputs = torch.tensor(xTest)
     labels = torch.tensor(yTest)
     with torch.no_grad():

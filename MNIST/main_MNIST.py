@@ -1,13 +1,8 @@
 import os
 import numpy as np
 import pandas as pd
-
-# pytorch imports
 import torch
 from torch.utils.data import DataLoader, random_split
-
-
-# scikit-learn imports
 from sklearn.model_selection import train_test_split
 from sklearn.manifold import TSNE
 
@@ -16,12 +11,10 @@ from spectral_analysis import linear_classifier
 from utils_BASiS import train_model, modelEvaluataion, sampleAnchors
 
 import warnings
-
 warnings.simplefilter("ignore", UserWarning)
 
 # hyper parameters MNIST
 device = torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
-
 classes = ('0', '1', '2', '3', '4',
            '5', '6', '7', '8', '9')
 classNum = len(classes)
@@ -32,10 +25,12 @@ anchors_num = classNum * anchors_per_class
 batch_size = 512 - anchors_num
 iter_num = 1000
 
+# graph parameters
 ms = 10
 ms_normal = 7
-sigmaFlag = 0  # 0 = sigma per class, 1 = median
+sigmaFlag = 0  
 
+# RANSAC parameters
 ransac_nIter = 100
 ransac_tol = 0.1
 ransac_nPoints = 20
@@ -82,7 +77,6 @@ anchors_index, not_anchors_index = sampleAnchors(labels_test, anchors_per_class,
 X_anchors = featrues_test[anchors_index]
 X_not_anchors = featrues_test[not_anchors_index]
 
-
 y_anchors = labels_test[anchors_index]
 y_not_anchors = labels_test[not_anchors_index]
 
@@ -123,7 +117,6 @@ with torch.no_grad():
     encoded_xTest = model(xTest.float())
 
 
-# dataloaders - creating batches and shuffling the data
 train_iter = CofigDataset(encoded_xTrain, yTrain)
 train_loader = torch.utils.data.DataLoader(train_iter, batch_size=batch_size, shuffle=True, drop_last=True)
 valid_iter = CofigDataset(encoded_xValid, yValid)
