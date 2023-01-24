@@ -78,10 +78,8 @@ def ev_calculation(features, classNum, ms, ms_normal, sigmaFlag):
     # D = torch.diag(s0)
     # L = D - W
     # S_L, U_L = torch.linalg.eig(L) # return ev with norm 1
-    # # ev_norm = torch.linalg.norm(U_L, axis=0)
     # S_L = torch.real(S_L)
     # U_L = torch.real(U_L)
-    # # ev_norm1 = torch.linalg.norm(U_L, axis=0)
     # S_L, indices = torch.sort(S_L, dim=0, descending=False, out=None)
     # U_L = U_L[:, indices]
     # # RCut_EV = U_L[:, 1:classNum]

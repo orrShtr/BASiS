@@ -288,7 +288,7 @@ def train_model(xTrain, yTrain, xValid, yValid, classes, anchors_per_class,
 def modelEvaluataion(model, xTest, yTest, U_sampled_base, classes, 
                      ms, ms_normal, sigmaFlag, anchors_num,
                      ransac_nPoints, ransac_nIter, ransac_tol):
-        '''
+    '''
     Evaluate BASiS model performance 
     inputs:
     model:                    trained BASiS model
