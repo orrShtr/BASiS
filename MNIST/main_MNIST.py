@@ -37,9 +37,9 @@ ransac_nPoints = 20
 
 # siamese features
 train_features_list_pd = pd.read_pickle(
-    r".\Features\mnist_train_siamese_features_list_pd.pkl")
+    r"../MNIST/Features/MNIST/mnist_train_siamese_features_list_pd.pkl")
 test_features_list_pd = pd.read_pickle(
-    r".\Features\mnist_test_siamese_features_list_pd.pkl")
+    r"../MNIST/Features/MNIST/mnist_test_siamese_features_list_pd.pkl")
 
 train_features_list_np = np.array(train_features_list_pd.drop(['label'], axis=1))
 train_features_list_torch = torch.from_numpy(train_features_list_np)
