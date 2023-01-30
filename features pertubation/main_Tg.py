@@ -2,7 +2,6 @@ import os
 import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.colors import LinearSegmentedColormap
-import pandas as pd
 import random
 
 # pytorch imports
@@ -11,9 +10,6 @@ from torch.utils.data import DataLoader, random_split
 import torchvision
 import torchvision.transforms as transforms
 
-# scikit-learn imports
-from sklearn.model_selection import train_test_split
-from sklearn.manifold import TSNE
 
 from utils_Tg import sampleAnchors, ev_calculation, train_model
 
@@ -46,6 +42,10 @@ ransac_nIter = 100
 ransac_tol = 0.1
 ransac_nPoints = 20
 
+if not os.path.exists('./results'):
+    os.mkdir('./results')
+    os.mkdir('./results/MNIST')
+    
 model_path = r".\results\MNIST\save_MNIST_globalT"
 if not os.path.exists(model_path):
     os.mkdir(model_path)
@@ -55,8 +55,6 @@ if not os.path.exists(model_path):
 
 
 data_dir = 'dataset'
-### With these commands the train and test datasets, respectively, are downloaded
-### automatically and stored in the local "data_dir" directory.
 train_dataset = torchvision.datasets.MNIST(data_dir, train=True, download=True)
 idx0 = train_dataset.targets == 4
 idx1 = train_dataset.targets == 7
@@ -146,25 +144,6 @@ labels_to_plt = labels.clone()
 labels_to_plt[labels == 4] = 0
 labels_to_plt[labels == 7] = 1
 labels_to_plt[labels == 9] = 2
-
-# plt.figure(figsize=(17, 9))
-# plt.scatter(U_pixels[:, 0], U_pixels[:, 1], c=labels_to_plt, cmap=cm)
-# loc = np.arange(0, classNum - 1, (classNum - 1) / float(classNum))
-# cb = plt.colorbar()
-# cb.ax.tick_params(labelsize=30)
-# loc = np.arange(0, classNum - 1, (classNum - 1) / float(classNum)) + 0.3
-# cb.set_ticks(loc)
-# cb.set_ticklabels(classes)
-# # plt.gca().axes.yaxis.set_ticklabels([])
-# # plt.gca().axes.xaxis.set_ticklabels([])
-# plt.yticks(fontsize=16)
-# plt.xticks(fontsize=16)
-# plt.grid(True)
-# plt.xlabel("$\~{u}_{1}$", fontsize=40)
-# plt.ylabel("$u_{2}$", fontsize=40)
-# savefig_path = model_path + "/images/U_sampled_base_initial_tsne.png"
-# plt.savefig(savefig_path)
-# plt.show()
 
 train_model(xTrain, yTrain, xValid, yValid, classes, anchors_per_class, anchors_num, batch_size, ms,
                 ms_normal, sigmaFlag, ransac_nPoints, ransac_nIter, ransac_tol, iter_num, model_path, device)
