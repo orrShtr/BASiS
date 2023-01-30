@@ -2,9 +2,8 @@ import os
 import numpy as np
 import pandas as pd
 import torch
-from torch.utils.data import DataLoader, random_split
+from torch.utils.data import DataLoader
 from sklearn.model_selection import train_test_split
-from sklearn.manifold import TSNE
 
 from utils import CofigDataset
 from spectral_analysis import linear_classifier
@@ -65,7 +64,10 @@ featrues_train, featrues_val, labels_train, labels_val = train_test_split(train_
                                                                           train_labels_list_torch, test_size=0.2,
                                                                           random_state=0)
 
-
+if not os.path.exists('./results'):
+    os.mkdir('./results')
+    os.mkdir('./results/MNIST')
+    
 model_path = r".\results\MNIST\save_MNIST"
 model_path = model_path + str(test_iter)
 if not os.path.exists(model_path):
