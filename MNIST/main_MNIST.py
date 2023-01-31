@@ -69,7 +69,6 @@ if not os.path.exists('./results'):
     os.mkdir('./results/MNIST')
     
 model_path = r".\results\MNIST\save_MNIST"
-model_path = model_path + str(test_iter)
 if not os.path.exists(model_path):
     os.mkdir(model_path)
     os.mkdir(model_path + '/images')
